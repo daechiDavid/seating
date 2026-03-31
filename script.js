@@ -17,6 +17,8 @@ let appData = {
 };
 
 let currentClass = '5-1';
+let swapMode = false;
+let swapSelectedIndex = null;
 
 // Audio Context for sound effects
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -213,6 +215,8 @@ function bindEvents() {
 
     pngDownloadBtn.addEventListener('click', downloadPng);
 
+    document.getElementById('swap-mode-btn').addEventListener('click', toggleSwapMode);
+
     resetSeatsBtn.addEventListener('click', () => {
         appData.settings[currentClass].arrangement = new Array(appData.settings[currentClass].rows * appData.settings[currentClass].cols).fill(null);
         saveData();
@@ -272,6 +276,7 @@ function updateMode() {
 }
 
 function loadClass(classId) {
+    if (swapMode) toggleSwapMode();
     chalkboardClassText.innerText = classSelect.options[classSelect.selectedIndex].text;
     
     const settings = appData.settings[classId];
@@ -354,20 +359,68 @@ function renderGrid() {
             desk.innerHTML = '<i class="fa-solid fa-chair" style="font-size: 24px; opacity: 0.3;"></i>';
         }
         
+        if (swapMode && index === swapSelectedIndex) {
+            desk.classList.add('desk-swap-selected');
+        }
+
         desk.addEventListener('click', () => {
             handleDeskClick(index);
         });
-        
+
         container.appendChild(desk);
     });
     
     updateStats();
 }
 
+function toggleSwapMode() {
+    swapMode = !swapMode;
+    swapSelectedIndex = null;
+    const btn = document.getElementById('swap-mode-btn');
+    const hint = document.getElementById('swap-hint');
+    if (swapMode) {
+        btn.classList.add('btn-swap-active');
+        btn.innerHTML = '<i class="fa-solid fa-xmark"></i> 교환 취소';
+        hint.style.display = 'flex';
+        document.getElementById('swap-hint-text').textContent = '교환할 첫 번째 자리를 클릭하세요';
+    } else {
+        btn.classList.remove('btn-swap-active');
+        btn.innerHTML = '<i class="fa-solid fa-right-left"></i> 자리 교환';
+        hint.style.display = 'none';
+    }
+    renderGrid();
+}
+
 function handleDeskClick(index) {
     const settings = appData.settings[currentClass];
+
+    if (swapMode) {
+        const student = settings.arrangement[index];
+        if (!student) return;
+
+        if (swapSelectedIndex === null) {
+            swapSelectedIndex = index;
+            document.getElementById('swap-hint-text').textContent = '교환할 두 번째 자리를 클릭하세요';
+            renderGrid();
+            playSound('pop');
+        } else if (swapSelectedIndex === index) {
+            swapSelectedIndex = null;
+            document.getElementById('swap-hint-text').textContent = '교환할 첫 번째 자리를 클릭하세요';
+            renderGrid();
+        } else {
+            const temp = settings.arrangement[swapSelectedIndex];
+            settings.arrangement[swapSelectedIndex] = settings.arrangement[index];
+            settings.arrangement[index] = temp;
+            swapSelectedIndex = null;
+            document.getElementById('swap-hint-text').textContent = '교환할 첫 번째 자리를 클릭하세요';
+            saveData();
+            renderGrid();
+            playSound('tada');
+        }
+        return;
+    }
+
     let currentState = settings.desks[index];
-    
     if (settings.mode === 'normal') {
         settings.desks[index] = currentState === 'active' ? 'inactive' : 'active';
     } else {
@@ -375,9 +428,7 @@ function handleDeskClick(index) {
         else if (currentState === 'girl') settings.desks[index] = 'inactive';
         else settings.desks[index] = 'boy';
     }
-    
     settings.arrangement[index] = null;
-    
     saveData();
     renderGrid();
     playSound('pop');
