@@ -106,7 +106,7 @@ const colsInput = document.getElementById('cols');
 const updateGridBtn = document.getElementById('update-grid-btn');
 const shuffleBtn = document.getElementById('shuffle-btn');
 const resetSeatsBtn = document.getElementById('reset-seats-btn');
-const pdfDownloadBtn = document.getElementById('pdf-download-btn');
+const pngDownloadBtn = document.getElementById('png-download-btn');
 const modeNormal = document.getElementById('mode-normal');
 const modeGender = document.getElementById('mode-gender');
 const deskGrid = document.getElementById('desk-grid');
@@ -211,7 +211,7 @@ function bindEvents() {
 
     shuffleBtn.addEventListener('click', shuffleSeats);
 
-    pdfDownloadBtn.addEventListener('click', downloadPdf);
+    pngDownloadBtn.addEventListener('click', downloadPng);
 
     resetSeatsBtn.addEventListener('click', () => {
         appData.settings[currentClass].arrangement = new Array(appData.settings[currentClass].rows * appData.settings[currentClass].cols).fill(null);
@@ -310,10 +310,30 @@ function renderModeHint() {
 function updateStats() {
     const students = appData.students[currentClass];
     const settings = appData.settings[currentClass];
-    let usableDesks = settings.desks.filter(d => d !== 'inactive').length;
-    
+    const isGender = settings.mode === 'gender';
+
+    const boys = students.filter(s => s.gender === '남').length;
+    const girls = students.filter(s => s.gender === '여').length;
+
+    const boyDesks = settings.desks.filter(d => d === 'boy').length;
+    const girlDesks = settings.desks.filter(d => d === 'girl').length;
+    const usableDesks = settings.desks.filter(d => d !== 'inactive').length;
+
     document.getElementById('stat-students').innerText = students.length;
     document.getElementById('stat-desks').innerText = usableDesks;
+
+    const studentsGenderEl = document.getElementById('stat-students-gender');
+    const desksGenderEl = document.getElementById('stat-desks-gender');
+
+    if (isGender) {
+        studentsGenderEl.innerHTML = `<span class="stat-boy">남 ${boys}</span> / <span class="stat-girl">여 ${girls}</span>`;
+        desksGenderEl.innerHTML = `<span class="stat-boy">남 ${boyDesks}</span> / <span class="stat-girl">여 ${girlDesks}</span>`;
+        studentsGenderEl.style.display = 'inline';
+        desksGenderEl.style.display = 'inline';
+    } else {
+        studentsGenderEl.style.display = 'none';
+        desksGenderEl.style.display = 'none';
+    }
 }
 
 function renderGrid() {
@@ -714,7 +734,7 @@ function renderSepPairs() {
     }
 }
 
-async function downloadPdf() {
+async function downloadPng() {
     const settings = appData.settings[currentClass];
     const hasArrangement = settings.arrangement && settings.arrangement.some(s => s !== null);
 
@@ -724,26 +744,21 @@ async function downloadPdf() {
     }
 
     const [grade, classNum] = currentClass.split('-');
-    const filename = `${grade}학년${classNum}반.pdf`;
-
+    const filename = `${grade}학년${classNum}반.png`;
     const element = document.querySelector('.desk-area-wrapper');
 
-    pdfDownloadBtn.disabled = true;
-    pdfDownloadBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 저장 중...';
-
-    const opt = {
-        margin: 10,
-        filename: filename,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
-    };
+    pngDownloadBtn.disabled = true;
+    pngDownloadBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 저장 중...';
 
     try {
-        await html2pdf().set(opt).from(element).save();
+        const canvas = await html2canvas(element, { scale: 2, useCORS: true, logging: false, backgroundColor: '#fcfaf0' });
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
     } finally {
-        pdfDownloadBtn.disabled = false;
-        pdfDownloadBtn.innerHTML = '<i class="fa-solid fa-file-pdf"></i> PDF 저장';
+        pngDownloadBtn.disabled = false;
+        pngDownloadBtn.innerHTML = '<i class="fa-solid fa-image"></i> 이미지 저장';
     }
 }
 

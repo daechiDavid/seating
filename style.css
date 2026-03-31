@@ -252,6 +252,18 @@ main {
     color: var(--secondary-color);
 }
 
+.stat-gender-detail {
+    display: none;
+    font-size: 13px;
+    font-family: var(--font-ko);
+    font-weight: normal;
+    color: #555;
+    margin-left: 6px;
+}
+
+.stat-boy { color: #3a82c4; font-weight: bold; }
+.stat-girl { color: #d94f7a; font-weight: bold; }
+
 .shuffle-action {
     margin-top: auto;
     align-items: center;
