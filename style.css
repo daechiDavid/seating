@@ -132,6 +132,8 @@ header .controls {
 .btn-danger:hover { background-color: #ef5350; }
 .btn-link { background: none; box-shadow: none; color: #666; text-decoration: underline; padding: 0;}
 .btn-link:hover { color: #333; transform: none; }
+.btn-pdf { background-color: #e53935; color: white; font-size: 14px; padding: 8px 18px; }
+.btn-pdf:hover { background-color: #c62828; }
 .btn-small { padding: 4px 12px; font-size: 14px; }
 .btn-outline { background: transparent; border: 1px solid var(--text-main); color: var(--text-main); }
 .btn-outline:hover { background: #eee; }

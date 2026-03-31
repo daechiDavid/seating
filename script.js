@@ -106,6 +106,7 @@ const colsInput = document.getElementById('cols');
 const updateGridBtn = document.getElementById('update-grid-btn');
 const shuffleBtn = document.getElementById('shuffle-btn');
 const resetSeatsBtn = document.getElementById('reset-seats-btn');
+const pdfDownloadBtn = document.getElementById('pdf-download-btn');
 const modeNormal = document.getElementById('mode-normal');
 const modeGender = document.getElementById('mode-gender');
 const deskGrid = document.getElementById('desk-grid');
@@ -209,7 +210,9 @@ function bindEvents() {
     });
 
     shuffleBtn.addEventListener('click', shuffleSeats);
-    
+
+    pdfDownloadBtn.addEventListener('click', downloadPdf);
+
     resetSeatsBtn.addEventListener('click', () => {
         appData.settings[currentClass].arrangement = new Array(appData.settings[currentClass].rows * appData.settings[currentClass].cols).fill(null);
         saveData();
@@ -708,6 +711,39 @@ function renderSepPairs() {
                 renderSepPairs();
             });
         });
+    }
+}
+
+async function downloadPdf() {
+    const settings = appData.settings[currentClass];
+    const hasArrangement = settings.arrangement && settings.arrangement.some(s => s !== null);
+
+    if (!hasArrangement) {
+        Swal.fire({ title: '자리배치 없음', text: '먼저 자리 바꾸기를 실행해주세요.', icon: 'warning', confirmButtonText: '확인' });
+        return;
+    }
+
+    const [grade, classNum] = currentClass.split('-');
+    const filename = `${grade}학년${classNum}반.pdf`;
+
+    const element = document.querySelector('.desk-area-wrapper');
+
+    pdfDownloadBtn.disabled = true;
+    pdfDownloadBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 저장 중...';
+
+    const opt = {
+        margin: 10,
+        filename: filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+    };
+
+    try {
+        await html2pdf().set(opt).from(element).save();
+    } finally {
+        pdfDownloadBtn.disabled = false;
+        pdfDownloadBtn.innerHTML = '<i class="fa-solid fa-file-pdf"></i> PDF 저장';
     }
 }
 
