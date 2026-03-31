@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>초등 영어교실 자리바꾸기</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <!-- Google Fonts: Fredoka for English, Jua for cute Korean -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&family=Jua&display=swap" rel="stylesheet">
+    <!-- SheetJS for Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <!-- SweetAlert2 for cute alerts -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Animate.css -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header>
+            <div class="logo">
+                <i class="fa-solid fa-school"></i>
+                <span>Yongdu English Class Seating</span>
+            </div>
+            <div class="controls">
+                <select id="class-select" class="cute-select">
+                    <option value="5-1">5학년 1반</option>
+                    <option value="5-2">5학년 2반</option>
+                    <option value="5-3">5학년 3반</option>
+                    <option value="6-1">6학년 1반</option>
+                    <option value="6-2">6학년 2반</option>
+                    <option value="6-3">6학년 3반</option>
+                </select>
+                <div class="upload-btn-wrapper">
+                    <button id="upload-info-btn" class="btn btn-primary"><i class="fa-solid fa-file-excel"></i> 엑셀 명단
+                        업로드</button>
+                    <input type="file" id="excel-upload" accept=".xlsx, .xls" style="display: none;" />
+                </div>
+                <button id="manage-students-btn" class="btn btn-secondary"><i class="fa-solid fa-users"></i> 명단
+                    확인</button>
+                <button id="manage-separation-btn" class="btn btn-secondary"
+                    style="background-color:#d48a60; border: none;"><i class="fa-solid fa-user-slash"></i> 짝꿍 금지
+                    설정</button>
+            </div>
+        </header>
+
+        <main>
+            <!-- Settings Panel -->
+            <div class="settings-panel">
+                <h2><i class="fa-solid fa-gear"></i> 자리 설정</h2>
+
+                <div class="setting-group">
+                    <label>자리 모드:</label>
+                    <div class="toggle-group">
+                        <input type="radio" id="mode-normal" name="seat-mode" value="normal" checked>
+                        <label for="mode-normal" class="toggle-btn">일반 모드</label>
+
+                        <input type="radio" id="mode-gender" name="seat-mode" value="gender">
+                        <label for="mode-gender" class="toggle-btn">남녀 모드</label>
+                    </div>
+                    <div class="mode-hint" id="mode-hint">
+                        일반책상(갈색) / 빈자리(회색)
+                    </div>
+                </div>
+
+                <div class="setting-group row-col-group">
+                    <label>배열 (행 × 열):</label>
+                    <div class="number-input">
+                        <input type="number" id="rows" min="1" max="10" value="5">
+                        <span>×</span>
+                        <input type="number" id="cols" min="1" max="10" value="6">
+                    </div>
+                    <button id="update-grid-btn" class="btn btn-small btn-outline">적용</button>
+                </div>
+
+                <div class="setting-group stats-group">
+                    <div class="stat-box">학생수: <span id="stat-students">0</span>명</div>
+                    <div class="stat-box">자릿수: <span id="stat-desks">0</span>개</div>
+                </div>
+
+                <div class="setting-group shuffle-action">
+                    <button id="shuffle-btn" class="btn btn-large btn-success animate__animated"><i
+                            class="fa-solid fa-wand-magic-sparkles"></i> 자리 바꾸기!</button>
+                    <button id="reset-seats-btn" class="btn btn-link">자리 초기화</button>
+                </div>
+            </div>
+
+            <!-- Main Desk Area -->
+            <div class="desk-area-wrapper">
+                <div class="teacher-desk-container">
+                    <div class="chalkboard">
+                        <span id="chalkboard-class-text">5학년 1반</span> English Room
+                    </div>
+                    <div class="teacher-desk">TEACHER</div>
+                </div>
+                <!-- The Grid -->
+                <!-- Use custom props like --cols for dynamic styling -->
+                <div id="desk-grid" class="desk-grid">
+                    <!-- Desks generated via JS -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Student List Modal -->
+    <div id="student-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-clipboard-list"></i> 명단 관리 (<span id="modal-class-name">5학년 1반</span>)</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-helptext">
+                    * 엑셀 파일은 첫 행이 <strong>[학년, 반, 번호, 이름, 성별]</strong>이어야 합니다. (성별은 '남' 또는 '여')<br>
+                    * 학생 목록이 수정되면 자리배치가 초기화될 수 있습니다.
+                </p>
+                <div class="table-container">
+                    <table id="student-table">
+                        <thead>
+                            <tr>
+                                <th>학년</th>
+                                <th>반</th>
+                                <th>번호</th>
+                                <th>이름</th>
+                                <th>성별</th>
+                                <th>삭제</th>
+                            </tr>
+                        </thead>
+                        <tbody id="student-tbody">
+                            <!-- JS will populate this -->
+                        </tbody>
+                    </table>
+                    <div id="empty-state" class="empty-state" style="display: none;">
+                        <i class="fa-regular fa-folder-open"></i>
+                        <p>명단이 없습니다. 엑셀 파일을 업로드해주세요.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" id="clear-students-btn"><i class="fa-solid fa-trash-can"></i> 전체
+                    삭제</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Separation Setting Modal -->
+    <div id="separation-modal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-user-slash"></i> 짝꿍 금지 설정 (<span id="sep-modal-class-name">5학년 1반</span>)</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-helptext">가까이 앉으면 안되는 두 학생(상하좌우 및 대각선 포함)을 선택하여 추가하세요. 너무 많은 제약을 추가하면 자리를 배치하지 못할 수
+                    있습니다.</p>
+                <div style="display:flex; gap:10px; margin-bottom: 20px; align-items:center;">
+                    <select id="sep-student-a" class="cute-select" style="flex:1;"></select>
+                    <span style="font-weight:bold;">&amp;</span>
+                    <select id="sep-student-b" class="cute-select" style="flex:1;"></select>
+                    <button id="add-sep-pair-btn" class="btn btn-primary">추가</button>
+                </div>
+                <ul id="sep-pair-list" style="list-style:none; padding:0; margin-bottom: 10px;">
+                    <!-- JS will populate -->
+                </ul>
+                <div id="sep-empty-state" class="empty-state" style="display: none; padding: 20px;">
+                    <i class="fa-regular fa-face-smile"></i>
+                    <p>금지된 짝꿍이 없습니다.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Background music / sound effects placeholder -->
+    <script src="script.js"></script>
+</body>
+
+</html>
