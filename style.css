@@ -136,6 +136,8 @@ header .controls {
 .btn-pdf:hover { background-color: #c62828; }
 .btn-swap { background-color: #7b5ea7; color: white; font-size: 14px; padding: 8px 18px; }
 .btn-swap:hover { background-color: #634a8a; }
+.btn-history { background-color: #2196a3; color: white; font-size: 14px; padding: 8px 18px; }
+.btn-history:hover { background-color: #197a85; }
 .btn-swap-active { background-color: #ff7043 !important; color: white !important; }
 .btn-swap-active:hover { background-color: #e64a19 !important; }
 
@@ -433,6 +435,72 @@ main {
 }
 .desk-girl:hover { background-color: #f7b9c9; }
 
+
+/* History Navigator */
+.history-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 10px 20px;
+    margin-top: 18px;
+    background: #f0f4f8;
+    border-radius: 30px;
+    border: 1.5px solid #d0dbe8;
+    width: fit-content;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.history-nav.history-view-active {
+    background: #e8f4fd;
+    border-color: #90caf9;
+}
+
+.hist-nav-btn {
+    font-family: var(--font-ko);
+    font-size: 14px;
+    padding: 5px 14px;
+    border: 1.5px solid #b0bec5;
+    border-radius: 20px;
+    background: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+    color: #37474f;
+}
+
+.hist-nav-btn:hover:not(:disabled) {
+    background: #e3f2fd;
+    border-color: #64b5f6;
+    color: #1565c0;
+}
+
+.hist-nav-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.hist-nav-info {
+    text-align: center;
+    min-width: 160px;
+}
+
+.hist-nav-info #hist-label {
+    font-family: var(--font-ko);
+    font-size: 15px;
+    font-weight: bold;
+    color: #2c3e50;
+    display: block;
+}
+
+.hist-nav-info #hist-index-text {
+    font-family: var(--font-en);
+    font-size: 12px;
+    color: #78909c;
+}
 
 /* Modal Styles */
 .modal {

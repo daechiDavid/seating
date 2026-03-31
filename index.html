@@ -94,6 +94,7 @@
                 <div class="setting-group shuffle-action">
                     <button id="shuffle-btn" class="btn btn-large btn-success animate__animated"><i
                             class="fa-solid fa-wand-magic-sparkles"></i> 자리 바꾸기!</button>
+                    <button id="save-history-btn" class="btn btn-history"><i class="fa-solid fa-floppy-disk"></i> 히스토리 저장</button>
                     <button id="swap-mode-btn" class="btn btn-swap"><i class="fa-solid fa-right-left"></i> 자리 교환</button>
                     <button id="reset-seats-btn" class="btn btn-link">자리 초기화</button>
                     <button id="png-download-btn" class="btn btn-pdf"><i class="fa-solid fa-image"></i> 이미지 저장</button>
@@ -116,6 +117,15 @@
                 <!-- Use custom props like --cols for dynamic styling -->
                 <div id="desk-grid" class="desk-grid">
                     <!-- Desks generated via JS -->
+                </div>
+                <!-- History Navigator -->
+                <div id="history-nav" class="history-nav" style="display:none;">
+                    <button id="hist-prev-btn" class="hist-nav-btn"><i class="fa-solid fa-chevron-left"></i> 이전</button>
+                    <div class="hist-nav-info">
+                        <span id="hist-label">현재 배치</span>
+                        <span id="hist-index-text"></span>
+                    </div>
+                    <button id="hist-next-btn" class="hist-nav-btn">다음 <i class="fa-solid fa-chevron-right"></i></button>
                 </div>
             </div>
         </main>

@@ -7,18 +7,19 @@ let appData = {
         '6-1': [], '6-2': [], '6-3': []
     },
     settings: {
-        '5-1': { rows: 5, cols: 6, mode: 'normal', desks: [], arrangement: [], separatedPairs: [] },
-        '5-2': { rows: 5, cols: 6, mode: 'normal', desks: [], arrangement: [], separatedPairs: [] },
-        '5-3': { rows: 5, cols: 6, mode: 'normal', desks: [], arrangement: [], separatedPairs: [] },
-        '6-1': { rows: 5, cols: 6, mode: 'normal', desks: [], arrangement: [], separatedPairs: [] },
-        '6-2': { rows: 5, cols: 6, mode: 'normal', desks: [], arrangement: [], separatedPairs: [] },
-        '6-3': { rows: 5, cols: 6, mode: 'normal', desks: [], arrangement: [], separatedPairs: [] },
+        '5-1': { rows: 5, cols: 6, mode: 'normal', desks: [], arrangement: [], separatedPairs: [], history: [] },
+        '5-2': { rows: 5, cols: 6, mode: 'normal', desks: [], arrangement: [], separatedPairs: [], history: [] },
+        '5-3': { rows: 5, cols: 6, mode: 'normal', desks: [], arrangement: [], separatedPairs: [], history: [] },
+        '6-1': { rows: 5, cols: 6, mode: 'normal', desks: [], arrangement: [], separatedPairs: [], history: [] },
+        '6-2': { rows: 5, cols: 6, mode: 'normal', desks: [], arrangement: [], separatedPairs: [], history: [] },
+        '6-3': { rows: 5, cols: 6, mode: 'normal', desks: [], arrangement: [], separatedPairs: [], history: [] },
     }
 };
 
 let currentClass = '5-1';
 let swapMode = false;
 let swapSelectedIndex = null;
+let historyViewIndex = null; // null = 현재 배치, number = 히스토리 인덱스
 
 // Audio Context for sound effects
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -216,6 +217,9 @@ function bindEvents() {
     pngDownloadBtn.addEventListener('click', downloadPng);
 
     document.getElementById('swap-mode-btn').addEventListener('click', toggleSwapMode);
+    document.getElementById('save-history-btn').addEventListener('click', saveHistory);
+    document.getElementById('hist-prev-btn').addEventListener('click', histNavPrev);
+    document.getElementById('hist-next-btn').addEventListener('click', histNavNext);
 
     resetSeatsBtn.addEventListener('click', () => {
         appData.settings[currentClass].arrangement = new Array(appData.settings[currentClass].rows * appData.settings[currentClass].cols).fill(null);
@@ -277,6 +281,7 @@ function updateMode() {
 
 function loadClass(classId) {
     if (swapMode) toggleSwapMode();
+    historyViewIndex = null;
     chalkboardClassText.innerText = classSelect.options[classSelect.selectedIndex].text;
     
     const settings = appData.settings[classId];
@@ -344,33 +349,79 @@ function updateStats() {
 function renderGrid() {
     const settings = appData.settings[currentClass];
     const container = document.getElementById('desk-grid');
-    
+    const isHistoryView = historyViewIndex !== null;
+    const history = settings.history || [];
+
+    // 표시할 arrangement 결정 (히스토리 or 현재)
+    const displayArrangement = isHistoryView
+        ? (history[historyViewIndex] ? history[historyViewIndex].arrangement : [])
+        : settings.arrangement;
+
     container.innerHTML = '';
     container.style.gridTemplateColumns = `repeat(${settings.cols}, 90px)`;
-    
+
+    // 히스토리 뷰 시 반투명 오버레이 느낌
+    container.style.opacity = isHistoryView ? '0.85' : '1';
+
     settings.desks.forEach((state, index) => {
         const desk = document.createElement('div');
         desk.className = `desk-slot desk-${state}`;
-        
-        const student = settings.arrangement[index];
+
+        const student = displayArrangement[index];
         if (student) {
             desk.innerHTML = `<span class="student-no">${student.no}.</span><br><span class="student-name">${student.name}</span>`;
         } else {
             desk.innerHTML = '<i class="fa-solid fa-chair" style="font-size: 24px; opacity: 0.3;"></i>';
         }
-        
-        if (swapMode && index === swapSelectedIndex) {
-            desk.classList.add('desk-swap-selected');
-        }
 
-        desk.addEventListener('click', () => {
-            handleDeskClick(index);
-        });
+        if (!isHistoryView) {
+            if (swapMode && index === swapSelectedIndex) {
+                desk.classList.add('desk-swap-selected');
+            }
+            desk.addEventListener('click', () => { handleDeskClick(index); });
+        } else {
+            desk.style.cursor = 'default';
+        }
 
         container.appendChild(desk);
     });
-    
+
     updateStats();
+    renderHistoryNav();
+}
+
+function renderHistoryNav() {
+    const settings = appData.settings[currentClass];
+    const history = settings.history || [];
+    const nav = document.getElementById('history-nav');
+
+    if (history.length === 0) {
+        nav.style.display = 'none';
+        return;
+    }
+
+    nav.style.display = 'flex';
+    const isHistoryView = historyViewIndex !== null;
+
+    const prevBtn = document.getElementById('hist-prev-btn');
+    const nextBtn = document.getElementById('hist-next-btn');
+    const label = document.getElementById('hist-label');
+    const indexText = document.getElementById('hist-index-text');
+
+    if (!isHistoryView) {
+        label.textContent = '현재 배치';
+        indexText.textContent = `(저장된 기록 ${history.length}개)`;
+        prevBtn.disabled = false;
+        nextBtn.disabled = true;
+        nav.classList.remove('history-view-active');
+    } else {
+        const entry = history[historyViewIndex];
+        label.textContent = entry.date;
+        indexText.textContent = `(${historyViewIndex + 1} / ${history.length})`;
+        prevBtn.disabled = historyViewIndex <= 0;
+        nextBtn.disabled = false;
+        nav.classList.add('history-view-active');
+    }
 }
 
 function toggleSwapMode() {
@@ -408,14 +459,56 @@ function handleDeskClick(index) {
             document.getElementById('swap-hint-text').textContent = '교환할 첫 번째 자리를 클릭하세요';
             renderGrid();
         } else {
-            const temp = settings.arrangement[swapSelectedIndex];
-            settings.arrangement[swapSelectedIndex] = settings.arrangement[index];
-            settings.arrangement[index] = temp;
-            swapSelectedIndex = null;
-            document.getElementById('swap-hint-text').textContent = '교환할 첫 번째 자리를 클릭하세요';
-            saveData();
-            renderGrid();
-            playSound('tada');
+            const studentA = settings.arrangement[swapSelectedIndex]; // index A → 이동할 자리: index
+            const studentB = settings.arrangement[index];              // index B → 이동할 자리: swapSelectedIndex
+            const history = settings.history || [];
+
+            // 히스토리에서 각 학생이 이동할 자리에 앉은 적 있는지 확인
+            const warnings = [];
+            if (history.length > 0) {
+                const seatHistory = {}; // studentNo -> Set of indices
+                history.forEach(entry => {
+                    entry.arrangement.forEach((s, idx) => {
+                        if (s) {
+                            if (!seatHistory[s.no]) seatHistory[s.no] = new Set();
+                            seatHistory[s.no].add(idx);
+                        }
+                    });
+                });
+                if (seatHistory[studentA.no]?.has(index)) {
+                    warnings.push(`<b>${studentA.name}</b>은(는) 이 자리에 과거에 앉은 적 있습니다.`);
+                }
+                if (seatHistory[studentB.no]?.has(swapSelectedIndex)) {
+                    warnings.push(`<b>${studentB.name}</b>은(는) 이 자리에 과거에 앉은 적 있습니다.`);
+                }
+            }
+
+            const doSwap = () => {
+                settings.arrangement[swapSelectedIndex] = studentB;
+                settings.arrangement[index] = studentA;
+                swapSelectedIndex = null;
+                document.getElementById('swap-hint-text').textContent = '교환할 첫 번째 자리를 클릭하세요';
+                saveData();
+                renderGrid();
+                playSound('tada');
+            };
+
+            if (warnings.length > 0) {
+                Swal.fire({
+                    title: '⚠️ 히스토리 중복 경고',
+                    html: warnings.join('<br>') + '<br><br>그래도 교환하시겠습니까?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: '예, 교환합니다',
+                    cancelButtonText: '아니오',
+                    confirmButtonColor: '#e88d08',
+                    cancelButtonColor: '#999',
+                }).then(result => {
+                    if (result.isConfirmed) doSwap();
+                });
+            } else {
+                doSwap();
+            }
         }
         return;
     }
@@ -435,8 +528,19 @@ function handleDeskClick(index) {
 }
 
 // Generate Arrangement using Random Trials with Constraints
-function generateArrangement(mode, students, activeIndices, boyIndices, girlIndices, settings) {
+function generateArrangement(mode, students, activeIndices, boyIndices, girlIndices, settings, forbiddenSeats) {
     const MAX_TRIES = 500;
+
+    // forbiddenSeats: { studentNo -> Set of indices } — 히스토리 기반 금지 자리
+    const checkHistoryConstraint = (arr) => {
+        if (!forbiddenSeats) return true;
+        for (let i = 0; i < arr.length; i++) {
+            if (!arr[i]) continue;
+            const forbidden = forbiddenSeats[arr[i].no];
+            if (forbidden && forbidden.has(i)) return false;
+        }
+        return true;
+    };
     
     // Check 8-way adjacency
     const getAdjacentIndices = (idx, rows, cols) => {
@@ -515,7 +619,7 @@ function generateArrangement(mode, students, activeIndices, boyIndices, girlIndi
             }
         }
         
-        if (checkConstraints(arr)) {
+        if (checkConstraints(arr) && checkHistoryConstraint(arr)) {
             return arr;
         }
     }
@@ -558,22 +662,52 @@ function shuffleSeats() {
 
     shuffleBtn.disabled = true;
     shuffleBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 섞는중...';
-    
+
     setTimeout(() => {
         settings.arrangement = new Array(settings.rows * settings.cols).fill(null);
-        
-        const resultArrangement = generateArrangement(mode, students, activeIndices, boyIndices, girlIndices, settings);
-        
+
+        // 히스토리 기반 금지 자리 맵 생성
+        const history = settings.history || [];
+        let forbiddenSeats = null;
+        if (history.length > 0) {
+            forbiddenSeats = {};
+            history.forEach(entry => {
+                entry.arrangement.forEach((student, idx) => {
+                    if (student) {
+                        if (!forbiddenSeats[student.no]) forbiddenSeats[student.no] = new Set();
+                        forbiddenSeats[student.no].add(idx);
+                    }
+                });
+            });
+        }
+
+        // 히스토리 제약 포함 시도
+        let resultArrangement = forbiddenSeats
+            ? generateArrangement(mode, students, activeIndices, boyIndices, girlIndices, settings, forbiddenSeats)
+            : generateArrangement(mode, students, activeIndices, boyIndices, girlIndices, settings, null);
+
+        // 실패 시 히스토리 제약 없이 재시도
+        let usedFallback = false;
+        if (!resultArrangement && forbiddenSeats) {
+            resultArrangement = generateArrangement(mode, students, activeIndices, boyIndices, girlIndices, settings, null);
+            usedFallback = true;
+        }
+
         if (!resultArrangement) {
             Swal.fire('자리 배치 실패', '짝꿍 금지 조건이 너무 많거나 자리가 비좁아 조건을 만족하는 배치를 찾지 못했습니다.<br>제약을 줄이고 다시 시도해주세요.', 'error');
             shuffleBtn.disabled = false;
             shuffleBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> 자리 바꾸기!';
             return;
         }
-        
+
         settings.arrangement = resultArrangement;
+        historyViewIndex = null;
         saveData();
         renderGrid();
+
+        if (usedFallback) {
+            Swal.fire({ title: '히스토리 중복 방지 적용 불가', text: '히스토리가 많아 중복 없는 배치를 찾지 못했습니다. 일반 배치로 진행했습니다.', icon: 'info', toast: true, position: 'top-end', timer: 3000, showConfirmButton: false });
+        }
         
         const desks = document.querySelectorAll('.desk-slot');
         desks.forEach(desk => {
@@ -783,6 +917,53 @@ function renderSepPairs() {
             });
         });
     }
+}
+
+function saveHistory() {
+    const settings = appData.settings[currentClass];
+    const hasArrangement = settings.arrangement && settings.arrangement.some(s => s !== null);
+
+    if (!hasArrangement) {
+        Swal.fire({ title: '저장할 배치 없음', text: '먼저 자리 바꾸기를 실행해주세요.', icon: 'warning', confirmButtonText: '확인' });
+        return;
+    }
+
+    if (!settings.history) settings.history = [];
+
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const dateStr = `${now.getFullYear()}.${pad(now.getMonth()+1)}.${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+    settings.history.push({
+        date: dateStr,
+        arrangement: JSON.parse(JSON.stringify(settings.arrangement))
+    });
+
+    saveData();
+    renderHistoryNav();
+    Swal.fire({ title: '히스토리 저장 완료!', text: `${dateStr} 배치가 저장되었습니다.`, icon: 'success', toast: true, position: 'top-end', timer: 2000, showConfirmButton: false });
+}
+
+function histNavPrev() {
+    const history = appData.settings[currentClass].history || [];
+    if (historyViewIndex === null) {
+        historyViewIndex = history.length - 1;
+    } else if (historyViewIndex > 0) {
+        historyViewIndex--;
+    }
+    renderGrid();
+}
+
+function histNavNext() {
+    const history = appData.settings[currentClass].history || [];
+    if (historyViewIndex !== null) {
+        if (historyViewIndex >= history.length - 1) {
+            historyViewIndex = null;
+        } else {
+            historyViewIndex++;
+        }
+    }
+    renderGrid();
 }
 
 async function downloadPng() {
