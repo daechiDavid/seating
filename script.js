@@ -463,23 +463,30 @@ function handleDeskClick(index) {
             const studentB = settings.arrangement[index];              // index B → 이동할 자리: swapSelectedIndex
             const history = settings.history || [];
 
-            // 히스토리에서 각 학생이 이동할 자리에 앉은 적 있는지 확인
+            // 히스토리에서 각 학생이 이동할 자리/짝꿍을 경험한 적 있는지 확인
             const warnings = [];
             if (history.length > 0) {
-                const seatHistory = {}; // studentNo -> Set of indices
-                history.forEach(entry => {
-                    entry.arrangement.forEach((s, idx) => {
-                        if (s) {
-                            if (!seatHistory[s.no]) seatHistory[s.no] = new Set();
-                            seatHistory[s.no].add(idx);
-                        }
-                    });
-                });
+                const historyConstraints = buildHistoryConstraints(history, settings.cols);
+                const seatHistory = historyConstraints.seats;
+                const pairHistory = historyConstraints.partners;
                 if (seatHistory[studentA.no]?.has(index)) {
                     warnings.push(`<b>${studentA.name}</b>은(는) 이 자리에 과거에 앉은 적 있습니다.`);
                 }
                 if (seatHistory[studentB.no]?.has(swapSelectedIndex)) {
                     warnings.push(`<b>${studentB.name}</b>은(는) 이 자리에 과거에 앉은 적 있습니다.`);
+                }
+
+                const afterSwap = [...settings.arrangement];
+                afterSwap[swapSelectedIndex] = studentB;
+                afterSwap[index] = studentA;
+                const studentABuddy = afterSwap[getBuddySeatIndex(index, settings.cols)];
+                const studentBBuddy = afterSwap[getBuddySeatIndex(swapSelectedIndex, settings.cols)];
+
+                if (studentABuddy && pairHistory[studentA.no]?.has(studentABuddy.no)) {
+                    warnings.push(`<b>${studentA.name}</b>은(는) <b>${studentABuddy.name}</b>와 과거에 짝을 한 적 있습니다.`);
+                }
+                if (studentBBuddy && pairHistory[studentB.no]?.has(studentBBuddy.no)) {
+                    warnings.push(`<b>${studentB.name}</b>은(는) <b>${studentBBuddy.name}</b>와 과거에 짝을 한 적 있습니다.`);
                 }
             }
 
@@ -527,105 +534,6 @@ function handleDeskClick(index) {
     playSound('pop');
 }
 
-// Generate Arrangement using Random Trials with Constraints
-function generateArrangement(mode, students, activeIndices, boyIndices, girlIndices, settings, forbiddenSeats) {
-    const MAX_TRIES = 500;
-
-    // forbiddenSeats: { studentNo -> Set of indices } — 히스토리 기반 금지 자리
-    const checkHistoryConstraint = (arr) => {
-        if (!forbiddenSeats) return true;
-        for (let i = 0; i < arr.length; i++) {
-            if (!arr[i]) continue;
-            const forbidden = forbiddenSeats[arr[i].no];
-            if (forbidden && forbidden.has(i)) return false;
-        }
-        return true;
-    };
-    
-    // Check 8-way adjacency
-    const getAdjacentIndices = (idx, rows, cols) => {
-        let r = Math.floor(idx / cols);
-        let c = idx % cols;
-        let adj = [];
-        for(let dr=-1; dr<=1; dr++){
-            for(let dc=-1; dc<=1; dc++){
-                if(dr===0 && dc===0) continue;
-                let nr = r + dr, nc = c + dc;
-                if(nr>=0 && nr<rows && nc>=0 && nc<cols){
-                    adj.push(nr * cols + nc);
-                }
-            }
-        }
-        return adj;
-    };
-    
-    const pairs = settings.separatedPairs || []; 
-    
-    const checkConstraints = (arr) => {
-        if (pairs.length === 0) return true;
-        for (let i = 0; i < arr.length; i++) {
-            if (!arr[i]) continue;
-            let adj = getAdjacentIndices(i, settings.rows, settings.cols);
-            
-            for(let p = 0; p < pairs.length; p++) {
-                let pair = pairs[p];
-                if (arr[i].no === pair.a) {
-                    for(let a of adj) {
-                        if (arr[a] && arr[a].no === pair.b) return false;
-                    }
-                }
-                if (arr[i].no === pair.b) {
-                    for(let a of adj) {
-                        if (arr[a] && arr[a].no === pair.a) return false;
-                    }
-                }
-            }
-        }
-        return true;
-    };
-
-    const shuffleArray = (arr) => {
-        for (let i = arr.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [arr[i], arr[j]] = [arr[j], arr[i]];
-        }
-    };
-
-    for(let t = 0; t < MAX_TRIES; t++) {
-        let arr = new Array(settings.rows * settings.cols).fill(null);
-        let s = [...students];
-        
-        let act = [...activeIndices];
-        let boyAct = [...boyIndices];
-        let girlAct = [...girlIndices];
-
-        shuffleArray(s);
-        
-        if (mode === 'normal') {
-            shuffleArray(act);
-            for(let i=0; i<s.length; i++) {
-                arr[act[i]] = s[i];
-            }
-        } else {
-            const boys = s.filter(st => st.gender === '남');
-            const girls = s.filter(st => st.gender === '여');
-            shuffleArray(boyAct);
-            shuffleArray(girlAct);
-            for(let i=0; i<boys.length; i++) {
-                arr[boyAct[i]] = boys[i];
-            }
-            for(let i=0; i<girls.length; i++) {
-                arr[girlAct[i]] = girls[i];
-            }
-        }
-        
-        if (checkConstraints(arr) && checkHistoryConstraint(arr)) {
-            return arr;
-        }
-    }
-    return null; // Failed to find satisfying arrangement
-}
-
 function shuffleSeats() {
     const students = [...appData.students[currentClass]];
     if (students.length === 0) {
@@ -666,29 +574,18 @@ function shuffleSeats() {
     setTimeout(() => {
         settings.arrangement = new Array(settings.rows * settings.cols).fill(null);
 
-        // 히스토리 기반 금지 자리 맵 생성
+        // 히스토리 기반 금지 자리/짝 맵 생성
         const history = settings.history || [];
-        let forbiddenSeats = null;
-        if (history.length > 0) {
-            forbiddenSeats = {};
-            history.forEach(entry => {
-                entry.arrangement.forEach((student, idx) => {
-                    if (student) {
-                        if (!forbiddenSeats[student.no]) forbiddenSeats[student.no] = new Set();
-                        forbiddenSeats[student.no].add(idx);
-                    }
-                });
-            });
-        }
+        const historyConstraints = buildHistoryConstraints(history, settings.cols);
 
         // 히스토리 제약 포함 시도
-        let resultArrangement = forbiddenSeats
-            ? generateArrangement(mode, students, activeIndices, boyIndices, girlIndices, settings, forbiddenSeats)
+        let resultArrangement = historyConstraints
+            ? generateArrangement(mode, students, activeIndices, boyIndices, girlIndices, settings, historyConstraints)
             : generateArrangement(mode, students, activeIndices, boyIndices, girlIndices, settings, null);
 
         // 실패 시 히스토리 제약 없이 재시도
         let usedFallback = false;
-        if (!resultArrangement && forbiddenSeats) {
+        if (!resultArrangement && historyConstraints) {
             resultArrangement = generateArrangement(mode, students, activeIndices, boyIndices, girlIndices, settings, null);
             usedFallback = true;
         }
